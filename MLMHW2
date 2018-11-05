@@ -1,0 +1,742 @@
+libname hlmdata "E:\2 Spring 2013\Y639\\Week 13\Assignments\Data";
+libname output  "E:\2 Spring 2013\Y639\\Week 13\Assignments\Output";
+
+/****************************************\
+*  a. Exploratory Analysis               *
+*       Look at Assignment 1 and Lab 2   *
+\****************************************/
+
+TITLE 'Create overall means';
+proc means data=hlmdata.Hw2 mean std max min;
+	title1 'Overall Means'; 
+	var work leisure male ses science;
+	output out=output.means;
+run;
+
+/************************************
+ Create school-level means
+************************************/
+proc means data=hlmdata.Hw2 noprint mean std max min;
+	title1 'School Level Means'; 
+	var work leisure male ses science;
+		by idschool;
+	output out=output.schmeans mean=mwork mleisure mmale mses mscience;
+run;
+
+/************************************
+ Create new data set
+************************************/
+proc sort data=hlmdata.Hw2;
+	by idschool;
+proc sort data=output.schmeans;
+	by idschool;
+run;
+
+data hlmdata.Hw2means;
+	merge hlmdata.Hw2 output.schmeans;
+	drop _TYPE_ _FREQ_;
+		by idschool;
+	gmcwork = work - 2.039;
+	gmcleisure = leisure - 6.873;
+	gmcscience = science - 517.269;
+	gmcmale = male - 0.505;
+	gmcses = ses - 1.945;
+	gpcwork = work - mwork;
+	gpcleisure = leisure - mleisure;
+	gpcscience = science - mscience;
+	gpcmale = male - mmale;
+	gpcses = ses - mses;
+	cmwork = mwork - 2.039;
+	cmleisure = mleisure - 6.873;
+	cmscience = mscience - 517.269;
+	cmmale = mmale - 0.505;
+	cmses = mses - 1.945;
+run;
+
+TITLE 'Exploratory Analyses of gender differences';
+proc freq data=hlmdata.Hw2means;
+	title1 'Frequencies of MALE (gender)';
+	table male;
+run;
+
+proc sort data=hlmdata.Hw2means;
+	by male;
+run;
+
+proc means data=hlmdata.Hw2means mean;
+    title1 'Mean of WORK by MALE (gender)';
+    var work;
+		by male;
+	output out=output.gwmeans mean=gmwork;
+run;
+
+proc means data=hlmdata.Hw2means mean;
+    title1 'Mean of LEISURE by MALE (gender)';
+    var leisure;
+		by male;
+	output out=output.glmeans mean=gmleisure;
+run;
+
+proc sgplot data=hlmdata.Hw2means;
+	reg x=work y=science / group=male nomarkers;
+	xaxis label='Time on WORK activities';
+	yaxis label='SCIENCE Achievement';
+	title1 'BY GENDER, Time on WORK activities PREDICTS SCIENCE achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=hlmdata.Hw2means;
+	reg x=leisure y=science / group=male nomarkers;
+	xaxis label='Time on LEISURE activities';
+	yaxis label='SCIENCE Achievement';
+	title1 'BY GENDER, Time on LEISURE activities PREDICTS SCIENCE achievement';
+	refline 0 / axis=x;
+run;
+
+TITLE 'Exploratory Analyses of SES differences';
+proc freq data=hlmdata.Hw2means;
+	title1 'Frequencies of SES'; 
+	table ses;
+run;
+
+proc sort data=hlmdata.Hw2means;
+	by ses;
+run;
+
+proc means data=hlmdata.Hw2means mean;
+    title1 'Mean of WORK by SES';
+    var work;
+		by ses;
+	output out=output.seswmeans mean=sesmwork;
+run;
+
+proc means data=hlmdata.Hw2means mean;
+    title1 'Mean of LEISURE by SES';
+    var leisure;
+		by ses;
+	output out=output.seslmeans mean=sesmleisure;
+run;
+
+proc sgplot data=hlmdata.Hw2means;
+	reg x=work y=science / group=ses nomarkers;
+	xaxis label='Time on WORK activities';
+	yaxis label='SCIENCE Achievement';
+	title1 'BY SES, Time on WORK activities PREDICTS SCIENCE achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=hlmdata.Hw2means;
+	reg x=leisure y=science / group=ses nomarkers;
+	xaxis label='Time on LEISURE activities';
+	yaxis label='SCIENCE Achievement';
+	title1 'BY SES, Time on LEISURE activities PREDICTS SCIENCE achievement';
+	refline 0 / axis=x;
+run;
+
+TITLE 'Exploratory Analyses of relationship';
+proc sort data=hlmdata.Hw2means;
+	by idschool;
+run;
+
+TITLE 'WORK';
+proc sgplot data=hlmdata.Hw2means;
+	reg x=work y=science / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mwork y=mscience / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='Time on WORK activities';
+	yaxis label='SCIENCE achievement';
+	title1 'BY SCHOOL, Time on WORK activities PREDICTS SCIENCE achievement';
+	title2 'Between School Regression Overlaid';
+	refline 0 / axis=x;
+run;
+ 
+proc sgplot data=output.schmeans noautolegend;
+	reg x=mwork y=mscience / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean Time on WORK activities';
+	yaxis label='School Mean SCIENCE achievement';
+	title1 'Between School Regression of SCIECNE achievement on Time on WORK activities';
+run;
+
+TITLE 'LEISURE';
+proc sgplot data=hlmdata.Hw2means;
+	reg x=leisure y=science / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mleisure y=mscience / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='Time on LEISURE activities';
+	yaxis label='SCIENCE achievement';
+	title1 'BY SCHOOL, Time on LEISURE activities PREDICTS SCIENCE achievement';
+	title2 'Between School Regression Overlaid';
+	refline 0 / axis=x;
+run;
+ 
+proc sgplot data=output.schmeans noautolegend;
+	reg x=mleisure y=mscience / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean Time on LEISURE activities';
+	yaxis label='School Mean SCIENCE achievement';
+	title1 'Between School Regression of SCIECNE achievement on Time on LEISURE activities';
+run;
+ 
+TITLE 'Control Variables';
+
+TITLE1 'MALE';
+proc sgplot data=hlmdata.Hw2means noautolegend;
+	reg x=male y=science / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mmale y=mscience / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='MALE (gender)';
+	yaxis label='SCIENCE achievement';
+	title2 'BY SCHOOL, MALE (gender) PREDICTS SCIENCE achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=output.schmeans noautolegend;
+	reg x=mmale y=mscience / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean MALE (gender)';
+	yaxis label='School Mean SCIENCE achievement';
+	title2 'Between School Regression of SCIECNE achievement on MALE (gender)';
+run;
+
+TITLE 'SES';
+proc sgplot data=hlmdata.Hw2means noautolegend;
+	reg x=ses y=science / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mses y=mscience / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='SES';
+	yaxis label='SCIENCE achievement';
+	title2 'BY SCHOOL, SES PREDICTS SCIENCE achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=output.schmeans noautolegend;
+	reg x=mses y=mscience / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean SES';
+	yaxis label='School Mean SCIENCE achievement';
+	title2 'Between School Regression of SCIECNE achievement on SES';
+run;
+
+TITLE 'Correlation Matrix to observe WITHIN & BETWEEN differences';
+proc corr data=hlmdata.Hw2means;
+	var gmcwork gpcwork gmcleisure gpcleisure gmcses gpcses;
+run;
+
+/****************************************\
+*  b. Specifying L1 and L2 models        *
+*    i.  Centering                       *
+*          Look at Lab 3                 *
+*    ii. Hypothesis Tests                *
+*          Look at Lab 4                 *
+\****************************************/
+
+TITLE 'Null and WITHIN Full Model';
+proc mixed data=hlmdata.Hw2means noclprint covtest;
+	title1 'Null Model';
+		class idschool;
+	model science = / solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F1 covparms=C1;
+run;
+
+proc mixed data=hlmdata.Hw2means noclprint covtest;
+	title1 'WITHIN Full Model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / solution;
+	random int gpcwork gpcleisure gmcses / type=un subject=idschool g;
+	ods output solutionf=F2 covparms=C2;
+run;
+
+%MACRO DEGREES(DDFM=);
+proc mixed data=hlmdata.Hw2means;
+	class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=&DDFM solution;
+	random int gpcwork gpcleisure gmcses / subject=idschool solution;
+	ods output solutionf=F&DDFM solutionr=r&DDFM ;
+	title "DDFM_&DDFM";
+%MEND DEGREES;
+
+%DEGREES(DDFM=CONTAIN)
+%DEGREES(DDFM=BETWITHIN)
+%DEGREES(DDFM=RESIDUAL)
+%DEGREES(DDFM=SATTERTH)
+%DEGREES(DDFM=KENWARDROGER)
+run;
+
+TITLE 'Testing RANDOM effects';
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-full model: RANDOM gpcleisure';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork gpcleisure gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-reduced model: RANDOM gpcleisure';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-full model: RANDOM gmcses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full2a covparms=C_Full2a;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-reduced model: RANDOM gmcses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork / type=un subject=idschool;
+	ods output solutionf=F_Full2b covparms=C_Full2b;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-full model: RANDOM gpcwork';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	ods output solutionf=F_Full3a covparms=C_Full3a;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-reduced model: RANDOM gpcwork';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gmcses/ type=un subject=idschool;
+	ods output solutionf=F_Full3b covparms=C_Full3b;
+run;
+
+TITLE 'Testing FIXED effects';
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: FIXED gpcwork*gmcses gpcwork*male gpcleisure*male';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma5 & gamma6 & gamma7 the same?'
+	gpcwork*gmcses 1,
+	gpcwork*male 1,
+	gpcleisure*male 1/ e;
+	ods output solutionf=F_FullF1 covparms=C_FullF1;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'LRT-full model: FIXED gpcleisure*male';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male gpcleisure*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	ods output solutionf=F_FullLRTFa covparms=C_FullLRTF3a;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'LRT-reduced model: FIXED gpcleisure*male';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	ods output solutionf=F_FullLRTFb covparms=C_FullLRTFb;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: FIXED gpcwork*gmcses gpcwork*male';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma5 & gamma6 the same?'
+	gpcwork*gmcses 1,
+	gpcwork*male 1/ e;
+	ods output solutionf=F_FullF1 covparms=C_FullF1;
+run;
+
+proc mixed data=hlmdata.Hw2means noclprint covtest;
+	title 'Final WITHIN Model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male / solution;
+	random int gpcwork gmcses / type=un subject=idschool g;
+	ods output solutionf=F_WFinal covparms=C_WFinal;
+run;
+
+TITLE 'WITHIN & BETWEEN Full Model 3';
+proc mixed data=hlmdata.Hw2means noclprint covtest;
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses gpcleisure*cmses / solution;
+	random int gpcwork gmcses / type=un subject=idschool g;
+	ods output solutionf=F3 covparms=C3;
+run;
+
+TITLE 'Testing FIXED effects';
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'LRT-full model: RANDOM all';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses gpcleisure*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full4a covparms=C_Full4a;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'LRT-reduced model: RANDOM less gpcwork*cmses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcleisure*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full4b covparms=C_Full4b;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'LRT-full model: RANDOM all';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcleisure*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full4a covparms=C_Full4a;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-reduced model: RANDOM less gpcleisure*cmses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full4b covparms=C_Full4b;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'LRT-full model: RANDOM all';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses gpcleisure*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full4a1 covparms=C_Full4a1;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml IC;
+	title1 'LRT-reduced model: RANDOM less gpcwork*cmses & gpcleisure*cmses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool;
+	ods output solutionf=F_Full4b1 covparms=C_Full4b1;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: gpcwork*cmses gpcleisure*cmses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses gpcleisure*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma10 & gamma11 the same?'
+	gpcwork*cmses 1,
+	gpcleisure*cmses 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+TITLE 'WITHIN & BETWEEN variables the same?';
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: gpcwork cmwork';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma1 & gamma5 the same?'
+	gpcwork 1,
+	cmwork 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: gpcleisure cmlesiure';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma2 & gamma6 the same?'
+	gpcleisure 1,
+	cmleisure 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: gmcses cmses';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma3 & gamma7 the same?'
+	gmcses 1,
+	cmses 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=hlmdata.Hw2means method=ml IC;
+	title1 'Multiparameter F-test: male mmale';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male gpcwork*cmses / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma4 & gamma8 the same?'
+	male 1,
+	mmale 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=hlmdata.Hw2means noclprint covtest;
+	title 'Final WITHIN & BETWEEN Full Model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / solution;
+	random int gpcwork gmcses / type=un subject=idschool g;
+	ods output solutionf=F_WBFinal covparms=C_WBFinal;
+run;
+
+/****************************************\
+*  c. Interpret Results                  *
+*    i.  Test if W-type act=L-type act   *
+*          Look at Lab 4                 *
+*    ii. Interpret fixed and random eff's*
+*          Look at Assignment 1          *
+\****************************************/
+
+proc mixed data=hlmdata.Hw2means IC;
+	title 'Multiparameter F-test: gpcwork gpcleisure';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma1 & gamma2 the same?'
+	gpcwork 1,
+	gpcleisure 1 / e;
+	ods output solutionf=F_FullF3 covparms=C_FullF3;
+run;
+
+proc mixed data=hlmdata.Hw2means IC;
+	title 'Multiparameter F-test: mwork mleisure';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	contrast 'gamma5 & gamma6 the same?'
+	cmwork 1,
+	cmleisure 1 / e;
+	ods output solutionf=F_FullF3 covparms=C_FullF3;
+run;
+
+/****************************************\
+*  d. Adequacy of model fit              *
+*    i.  L1 and L2 pseudo R2             *
+*          Look at Lab 4                 *
+*    ii. Usual assumptions: Nor,Lin@L1/L2*
+*          Look at Lab 4                 *
+\****************************************/
+
+proc mixed data=hlmdata.Hw2means method=reml;
+title 'R^2 estimates - Null Model';
+		class idschool;
+	model science = / ddfm=kenwardroger solution;
+	random int / subject=idschool;
+	ods output solutionf=F_Null covparms=C_Null;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml;
+title 'R^2 estimates ñ Final RI WITHIN model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int / subject=idschool;
+	ods output solutionf=F_RIW covparms=C_RIW;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml;
+title 'R^2 estimates - Null Model';
+		class idschool;
+	model science = / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_NullL2 covparms=C_NullL2;
+run;
+
+proc mixed data=hlmdata.Hw2means method=reml;
+title 'R^2 estimates ñ Final RI WITHIN & BETWEEN model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int / subject=idschool;
+	ods output solutionf=F_RIWB covparms=C_RIWB;
+run;
+
+TITLE 'Generating Harmonic Mean for L2 R^2';
+proc sort data=hlmdata.Hw2means;
+	by idschool;
+run;
+
+proc means data=hlmdata.Hw2means n;
+	var idschool;
+		by idschool;
+	ods output summary=clustersize;
+run;
+
+data harm_mean;
+	set clustersize;
+inverse = 1/IDSCHOOL_N;
+run;
+
+/*Creates denominator for harmonic mean*/
+/*Look in dataset work.harm for denominator*/
+proc summary data=harm_mean;
+var inverse;
+ 	output out=harm (drop=_type_ _freq_) sum=; /*Denominator below*/
+run;
+
+/*Gives number of clusters*/
+/*Look in dataset 'work.schcount' to get number of schools*/
+proc sql;
+	create table schcount as
+      select count(idschool) as numsch /*Number below*/
+	from harm_mean;
+quit; 
+
+TITLE 'Evaluating Assumptions'; 
+proc mixed data=hlmdata.Hw2means;
+	title 'Final WITHIN & BETWEEN Full Model';
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	ods output solutionf=F_test covparms=C_test;
+run;
+
+TITLE 'Quick Evaluation of L1 Assumptions';
+ods html style = journal;
+ods graphics on;
+ods listing;
+proc mixed data=hlmdata.Hw2means method=ml noclprint plots=studentpanel;
+	title 'Final WITHIN & BETWEEN Full Model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	ods output solutionf=F_qL1Eval covparms=C_qL1Eval;
+run;
+quit;
+ods graphics off;
+ods html close;
+
+TITLE 'Examining the L1 residuals';
+proc sort data=hlmdata.Hw2means;
+by idschool;
+run;
+proc reg data=hlmdata.Hw2means;                                                        
+   	model science = gpcwork gpcleisure gmcses male; 
+		by idschool;                           
+    output out=score RESIDUAL=_RESID STUDENT=_STUD; 
+run;
+
+TITLE 'Examine the STANDARDIZED residuals via a qq plot, p.162';
+proc univariate data=work.score noprint;
+	title1 "OLS Regression for L1 Residuals";
+var _STUD;
+	qqplot; 
+run;
+
+TITLE 'Look at UNSTANDARDIZED residuals by each predictor, p.162';
+proc sgplot data=work.score;
+	title1 'Unstandardized gpcwork residuals';
+	scatter x=gpcwork y=_resid;
+run;
+
+proc sgplot data=work.score;
+	title1 'Unstandardized gpcleisure residuals';
+	scatter x=gpcleisure y=_resid;
+run;
+
+proc sgplot data=work.score;
+	title1 'Unstandardized gmcses residuals';
+	scatter x=gmcses y=_resid;
+run;
+
+proc sgplot data=work.score;
+	title 'Box Plot of Residuals by male';
+hbox _resid / category=male ;
+run;
+
+TITLE 'Fit the full model and examine the L2 residuals';
+proc mixed data=hlmdata.Hw2means method=ml;
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male/ ddfm=kenwardroger solution;
+	random int gpcwork gmcses / type=un subject=idschool solution;
+	ods output solutionf=RSF covparms=RSC solutionr=RSR;
+run;
+
+TITLE 'Intercept residuals';
+data U_0j;
+	set RSR;
+	where effect = 'Intercept';
+		U_0j = estimate;
+	drop stderrpred df tvalue probt effect estimate;
+run;
+
+TITLE 'Slope residuals for gpcwork';
+data U_1j;
+	set RSR;
+	where effect = 'gpcwork';
+		U_1j = estimate;
+	drop stderrpred df tvalue probt effect estimate;
+run;
+
+TITLE 'Slope residuals for gmcses';
+data U_2j;
+	set RSR;
+	where effect = 'gmcses';
+		U_2j = estimate;
+	drop stderrpred df tvalue probt effect estimate;
+	run;
+
+TITLE 'Combining all the residuals into one dataset to do checks';
+data hlmdata.U_xj;
+	merge U_0j U_1j U_2j hlmdata.Hw2means;
+		by idschool;
+run;
+
+TITLE 'L2 Residuals by L2 Predictors';  
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmwork;
+	title 'L2 residual inspection (U_0j*cmwork)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_1j x=cmwork;
+	title 'L2 residual inspection (U_1j*cmwork)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_2j x=cmwork;
+	title 'L2 residual inspection (U_2j*cmwork)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmleisure;
+	title 'L2 residual inspection (U_0j*cmleisure)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_1j x=cmleisure;
+	title 'L2 residual inspection (U_1j*cmleisure)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_2j x=cmleisure;
+	title 'L2 residual inspection (U_2j*cmleisure)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmses;
+	title 'L2 residual inspection (U_0j*cmses)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_1j x=cmses;
+	title 'L2 residual inspection (U_1j*cmses)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_2j x=cmses;
+	title 'L2 residual inspection (U_2j*cmses)';
+run;
+
+ods graphics on; 
+proc univariate data=U_0j normal;
+	var U_0j;
+	histogram;
+	qqplot;
+run;
+
+proc univariate data=U_1j normal;
+	var U_1j;
+	histogram;
+	qqplot;
+run;
+
+proc univariate data=U_2j normal;
+	var U_2j;
+	histogram;
+	qqplot;
+run;
+
+ods graphics off;
