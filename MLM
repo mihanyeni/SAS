@@ -1,0 +1,975 @@
+ibname PIRLS "J:\2 Spring 2013\Y639\Week 16\Assignments\SAS\Data";
+libname out  "J:\2 Spring 2013\Y639\\Week 16\Assignments\SAS\Out";
+
+/***************************************************************************\
+|                              Factor Analysis                              |
+\***************************************************************************/
+/*proc factor data=PIRLS.AUTstFULL method=p priors=smc rotate=promax scree corr res;
+run;
+
+proc factor data=PIRLS.BWAstFULL method=p priors=smc rotate=promax scree corr res;
+run;
+
+proc factor data=PIRLS.ACGAUTR3 method=p priors=smc rotate=promax scree corr res;
+run;
+
+proc factor data=PIRLS.ACGBWAR3 method=p priors=smc rotate=promax scree corr res;
+run;*/
+
+/***************************************************************************\
+|                             Data Manipulation                             |
+\***************************************************************************/
+
+data pirls.aus;
+	merge pirls.autst pirls.autsch;
+		by idschool;
+run;
+
+data pirls.AusNEW;
+set pirls.aus;
+label male='Student is male';
+if itsex = 1 then male=0;
+	else if itsex = 2 then male=1;
+	else male=.;
+label stlng='Student first language is of test';
+if missing(asbg03) then stlng=.;
+	else if asbg03=1 then stlng=2;
+	else if asbg03=2 then stlng=1;
+	else if asbg03=3 then stlng=0;
+label stses='Student SES';
+if missing(asbg04) then stses=.;
+	else if asbg04=1 then stses=0;
+	else if asbg04=2 then stses=1;
+	else if asbg04=3 then stses=2;
+	else if asbg04=4 then stses=3;
+	else if asbg04=5 then stses=4;
+label stres='Student learning resources';
+if missing(asdg05s) then stres=.;
+	else if asdg05s=0 then stres=0;
+	else if asdg05s=1 then stres=1;
+	else if asdg05s=2 then stres=2;
+
+if missing(asbh16a) then falng=.;
+	else if asbh16a=1 then falng=1;
+	else if asbh16a=7 then falng=.;
+	else falng=0;
+if missing(asbh16b) then molng=.;
+	else if asbh16b=1 then molng=1;
+	else if asbh16b=7 then molng=.;
+	else molng=0;
+
+label hmlng='Home language is of test';
+if missing(asbh03a & falng & molng) then hmlng=.;
+	else if (asbh03a=2 & falng=0 & molng=0) then hmlng=0;
+	else if (asbh03a=2 & falng=0 & molng=1) then hmlng=1;
+	else if (asbh03a=2 & falng=1 & molng=0) then hmlng=1;
+	else if (asbh03a=1 & falng=0 & molng=0) then hmlng=1;
+	else if (asbh03a=2 & falng=1 & molng=1) then hmlng=2;
+	else if (asbh03a=1 & falng=0 & molng=1) then hmlng=2;
+	else if (asbh03a=1 & falng=1 & molng=0) then hmlng=2;
+	else if (asbh03a=1 & falng=1 & molng=1) then hmlng=3;
+Reading = asrrea01;
+
+label schlng='School % students native language is test';
+if missing(acbg04) then schlng=.;
+	else if acbg04 = 5 then schlng=0;
+	else if acbg04 = 4 then schlng=1;
+else if acbg04 = 3 then schlng=2;
+else if acbg04 = 2 then schlng=3;
+else if acbg04 = 1 then schlng=4;
+label schaid='School offers reading instruction for native language different from test';
+if missing(acbg19) then schaid=.;
+	else if acbg19=2 then schaid=0;
+	else if acbg19=1 then schaid=1;
+label scheco='School student economic background';
+if missing(acdg03) then scheco=.;
+	else if acdg03=3 then scheco=0;
+	else if acdg03=2 then scheco=1;
+	else if acdg03=1 then scheco=2;
+label schels='School student early literacy skills';
+if missing(acdgels) then schels=.;
+	else if acdgels=4 then schels=0;
+	else if acdgels=3 then schels=1;
+	else if acdgels=2 then schels=2;
+	else if acdgels=1 then schels=3;
+label schses='Schools number of books';
+if missing(acdg09) then schses=.;
+	else if acdg09=4 then schses=0;
+	else if acdg09=3 then schses=1;
+	else if acdg09=2 then schses=2;
+	else if acdg09=1 then schses=3;
+keep idcntry idbook idschool idclass idstud idgrade itlang reading male stlng stses stres hmlng schlng schaid scheco schels schses;
+run;
+
+/****************************************\
+*     Exploratory Analysis               *
+\****************************************/
+
+title 'Create overall means';
+proc means data=pirls.AusNEW mean std max min;
+	var reading male stlng stses stres hmlng schlng schaid scheco schels schses;
+	output out=out.Ausmeans;
+run;
+
+/************************************
+ Create school-level means
+************************************/
+title 'School Level Means';
+proc means data=pirls.AusNEW noprint mean std max min;
+	var reading male stlng stses stres hmlng schlng schaid scheco schels schses;
+		by idschool;
+	output out=out.Ausschmeans mean=mreading mmale mstlng mstses mstres mhmlng mschlng mschaid mscheco mschels mschses;
+run;
+
+/************************************
+ Create new data set
+************************************/
+proc sort data=pirls.AusNEW;
+	by idschool;
+proc sort data=out.Ausschmeans;
+	by idschool;
+run;
+
+data pirls.Ausmeans;
+	merge pirls.AusNEW out.Ausschmeans;
+	drop _TYPE_ _FREQ_;
+		by idschool;
+	gmcreading = reading - 527.917;
+	gmcmale    = male    - .513;
+	gmcstlng   = stlng   - 1.709;
+	gmcstses   = stses   - 1.957;
+	gmcstres   = stres   - 1.65;
+	gmchmlng   = hmlng   - 2.655;
+	gmcschlng  = schlng  - 2.478;
+	gmcschaid  = schaid  - .385;
+	gmcscheco  = scheco  - 1.06;
+	gmcschels  = schels  - .255;
+	gmcschses  = schses  - 1.282;
+	gpcreading = reading - mreading;
+	gpcmale    = male    - mmale;
+	gpcstlng   = stlng   - mstlng;
+	gpcstses   = stses   - mstses;
+	gpcstres   = stres   - mstres;
+	gpchmlng   = hmlng   - mhmlng;
+	gpcschlng  = schlng  - mschlng;
+	gpcschaid  = schaid  - mschaid;
+	gpcscheco  = scheco  - mscheco;
+	gpcschels  = schels  - mschels;
+	gpcschses  = schses  - mschses;
+	cmreading  = mreading - 5.27917;
+	cmmale     = mmale    - .513;
+	cmstlng    = mstlng   - 1.709;
+	cmstses    = mstses   - 1.957;
+	cmstres    = mstres   - 1.65;
+	cmhmlng    = mhmlng   - 2.655;
+	cmschlng   = mschlng  - 2.478;
+	cmschaid   = mschaid  - .385;
+	cmscheco   = mscheco  - 1.06;
+	cmschels   = mschels  - .255;
+	cmschses   = mschses  - 1.282;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+  histogram hmlng;
+  density hmlng;
+run;
+
+
+
+TITLE 'Exploratory analyses of gender differences';
+proc freq data=pirls.Ausmeans;
+	title1 'Frequencies of MALE (gender)';
+	table male;
+run;
+
+proc sort data=pirls.Ausmeans;
+	by male;
+run;
+
+proc means data=pirls.Ausmeans mean;
+    title1 'Mean of STLNG by MALE (gender)';
+    var stlng;
+		by male;
+	output out=out.smeans mean=gmstlng;
+run;
+
+proc means data=pirls.Ausmeans mean;
+    title1 'Mean of HMLNG by MALE (gender)';
+    var hmlng;
+		by male;
+	output out=out.hmeans mean=gmhmlng;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+	reg x=stlng y=reading / group=male nomarkers;
+	xaxis label='Student first language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By gender, STLNG predicts READING';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+	reg x=hmlng y=reading / group=male nomarkers;
+	xaxis label='Home language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By gender, HMLNG predicts READING';
+	refline 0 / axis=x;
+run;
+
+TITLE 'Exploratory Analyses of SES differences';
+proc freq data=pirls.Ausmeans;
+	title1 'Frequencies of SES'; 
+	table stses;
+run;
+
+proc sort data=pirls.Ausmeans;
+	by stses;
+run;
+
+proc means data=pirls.Ausmeans mean;
+    title1 'Mean of STLNG by SES';
+    var stlng;
+		by stses;
+	output out=out.ssesmeans mean=sses;
+run;
+
+proc means data=pirls.Ausmeans mean;
+    title1 'Mean of HMLNG by SES';
+    var hmlng;
+		by stses;
+	output out=out.hsesmeans mean=hses;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+	reg x=stlng y=reading / group=stses nomarkers;
+	xaxis label='Student first language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By SES, STLNG predicts READING';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+	reg x=hmlng y=reading / group=stses nomarkers;
+	xaxis label='Home language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By SES, HMLNG predicts READING';
+	refline 0 / axis=x;
+run;
+
+TITLE 'Exploratory Analyses of STRES differences';
+proc freq data=pirls.Ausmeans;
+	title1 'Frequencies of STRES'; 
+	table stres;
+run;
+
+proc sort data=pirls.Ausmeans;
+	by stres;
+run;
+
+proc means data=pirls.Ausmeans mean;
+    title1 'Mean of STLNG by STRES';
+    var stlng;
+		by stres;
+	output out=out.ssresmeans mean=ssres;
+run;
+
+proc means data=pirls.Ausmeans mean;
+    title1 'Mean of HMLNG by STRES';
+    var hmlng;
+		by stres;
+	output out=out.hsresmeans mean=hsres;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+	reg x=stlng y=reading / group=stres nomarkers;
+	xaxis label='Student first language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By STRES, STLNG predicts READING';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=pirls.Ausmeans;
+	reg x=hmlng y=reading / group=stres nomarkers;
+	xaxis label='Home language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By STRES, HMLNG predicts READING';
+	refline 0 / axis=x;
+run;
+
+TITLE 'STLNG';
+proc sgplot data=pirls.Ausmeans;
+	reg x=stlng y=reading / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mstlng y=mreading / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='Student first language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By School, STLNG predicts READING';
+	title2 'Between School Regression Overlaid';
+	refline 0 / axis=x;
+run;
+ 
+proc sgplot data=out.Ausschmeans noautolegend;
+reg x=mstlng y=mreading / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean STLNG';
+	yaxis label='School Mean READING';
+	title1 'Between School Regression of READING on STLNG';
+run;
+
+TITLE 'HMLNG';
+proc sgplot data=pirls.Ausmeans;
+	reg x=hmlng y=reading / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mhmlng y=mreading / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='Home language is of test';
+	yaxis label='Reading Achievement';
+	title1 'By School, HMLNG predicts READING';
+	title2 'Between School Regression Overlaid';
+	refline 0 / axis=x;
+run;
+ 
+proc sgplot data=out.Ausschmeans noautolegend;
+reg x=mhmlng y=mreading / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean HMLNG';
+	yaxis label='School Mean READING';
+	title1 'Between School Regression of READING on HMLNG';
+run;
+ 
+TITLE 'Control Variables';
+
+TITLE1 'MALE';
+proc sgplot data=pirls.Ausmeans noautolegend;
+	reg x=male y=reading / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mmale y=mreading / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='MALE (gender)';
+	yaxis label='READING achievement';
+	title2 'BY SCHOOL, MALE (gender) PREDICTS READING achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=out.Ausschmeans noautolegend;
+	reg x=mmale y=mreading / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean MALE (gender)';
+	yaxis label='School Mean READING achievement';
+	title2 'Between School Regression of SCIECNE achievement on MALE (gender)';
+run;
+
+TITLE 'SES';
+proc sgplot data=pirls.Ausmeans noautolegend;
+	reg x=stses y=reading / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mstses y=mreading / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='STSES';
+	yaxis label='READING achievement';
+	title2 'BY SCHOOL, STSES PREDICTS READING achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=out.Ausschmeans noautolegend;
+reg x=mstses y=mreading / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean STSES';
+	yaxis label='School Mean READING achievement';
+	title2 'Between School Regression of READING achievement on STSES';
+run;
+
+TITLE 'STRES';
+proc sgplot data=pirls.Ausmeans noautolegend;
+	reg x=stres y=reading / group=idschool nomarkers lineattrs=(color=black thickness=1);
+	reg x=mstres y=mreading / nomarkers lineattrs=(color=red thickness=2 pattern=solid);
+	xaxis label='STRES';
+	yaxis label='READING achievement';
+	title2 'BY SCHOOL, STRES PREDICTS READING achievement';
+	refline 0 / axis=x;
+run;
+
+proc sgplot data=out.Ausschmeans noautolegend;
+reg x=mstres y=mreading / nomarkers lineattrs=(color=black thickness=2);
+	xaxis label='School Mean STRES';
+	yaxis label='School Mean READING achievement';
+	title2 'Between School Regression of READING achievement on STRES';
+run;
+
+
+TITLE 'Correlation Matrix to observe WITHIN & BETWEEN differences';
+proc corr data=pirls.Ausmeans;
+	var gmcmale gmcstlng gmchmlng gmcstses gmcstres gpcmale gpcstlng gpchmlng gpcstses gpcstres;
+run;
+
+/****************************************\
+*     Specifying L1 and L2 models        *
+\****************************************/
+
+TITLE 'Null and WITHIN Full Model';
+proc mixed data=pirls.Ausmeans noclprint covtest;
+	title1 'Null Model';
+		class idschool;
+	model reading = / solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F1 covparms=C1;
+run;
+
+proc mixed data=pirls.Ausmeans noclprint covtest;
+	title1 'WITHIN Full Model';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / solution;
+	random int gpcstlng gpchmlng / type=un subject=idschool g;
+	ods output solutionf=F2 covparms=C2;
+run;
+
+%MACRO DEGREES(DDFM=);
+proc mixed data=pirls.Ausmeans;
+	class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / ddfm=&DDFM solution;
+	random int gpcstlng gpchmlng / subject=idschool solution;
+	ods output solutionf=F&DDFM solutionr=r&DDFM ;
+	title "DDFM_&DDFM";
+%MEND DEGREES;
+
+/*%DEGREES(DDFM=CONTAIN)
+%DEGREES(DDFM=BETWITHIN)
+%DEGREES(DDFM=RESIDUAL)
+%DEGREES(DDFM=SATTERTH)*/
+%DEGREES(DDFM=KENWARDROGER)
+run;
+
+TITLE 'Testing RANDOM effects';
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: RANDOM gpchmlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / ddfm=kenwardroger solution;
+	random int gpcstlng gpchmlng / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: RANDOM No gpchmlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / ddfm=kenwardroger solution;
+	random int gpcstlng / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: RANDOM gpcstlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / ddfm=kenwardroger solution;
+	random int gpcstlng / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: RANDOM No gpcstlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+TITLE 'Testing FIXED effects';
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: FIXED interactions';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres gpcstlng*gpcstses gpchmlng*gpcstses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'interactions the same?'
+	gpcstlng*gpcstses 1,
+	gpchmlng*gpcstses 1 / e;
+	ods output solutionf=F_FullF1 covparms=C_FullF1;
+run;
+
+proc mixed data=pirls.Ausmeans noclprint covtest;
+	title1 'WITHIN Model-Stage 2';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres / solution;
+	random int / type=un subject=idschool g;
+	ods output solutionf=F2 covparms=C2;
+run;
+
+
+TITLE 'WITHIN & BETWEEN Full Model';
+proc mixed data=pirls.Ausmeans noclprint covtest;
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres mmale cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / solution;
+	random int / type=un subject=idschool g;
+	ods output solutionf=F3 covparms=C3;
+run;
+
+TITLE 'WITHIN & BETWEEN variables the same?';
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: male & mmale';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres mmale cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'male & mmale the same?'
+	male 1,
+	mmale 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gpcstlng & cmstlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gpcstlng & cmstlng the same?'
+	gpcstlng 1,
+	cmstlng 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gpchmlng & cmhmlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gpchmlng & cmhmlng the same?'
+	gpchmlng 1,
+	cmhmlng 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gpcstses & cmstses';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gpcstses & cmstses the same?'
+	gpcstses 1,
+	cmstses 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gmcstres & cmstres';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gmcstres & cmstres the same?'
+	gmcstres 1,
+	cmstres 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gmcstres & cmstres';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gmcstres & cmstres the same?'
+	gpcstlng 1,
+	cmschlng 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gmcstres & cmstres';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gmcstres & cmstres the same?'
+	gpchmlng 1,
+	cmschlng 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans method=ml IC;
+	title1 'Multiparameter F-test: gmcstres & cmstres';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gmcstres & cmstres the same?'
+	gpcstses 1,
+	cmschses 1 / e;
+	ods output solutionf=F_FullF2 covparms=C_FullF2;
+run;
+
+proc mixed data=pirls.Ausmeans noclprint covtest;
+	title1 'WITHIN & BETWEEN Model-Stage 2';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / solution;
+	random int / type=un subject=idschool g;
+	ods output solutionf=F2 covparms=C2;
+run;
+
+
+TITLE 'L1 & L2 variables the same?';
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED cmschlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No cmschlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED cmschels';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschels cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No cmschels';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED cmschses';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No cmschses';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED cmschaid';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int/ type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No cmschaid';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans noclprint covtest;
+	title1 'WITHIN & BETWEEN Model-Stage 3';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / solution;
+	random int / type=un subject=idschool g;
+	ods output solutionf=F2 covparms=C2;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED hmlng INTERACTION';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstlng*cmschlng gpchmlng*cmschlng gpcstses*cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No hmlng INTERACTION';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstlng*cmschlng gpcstses*cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED stlng INTERACTION';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstlng*cmschlng gpcstses*cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No stlng INTERACTION';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstses*cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-full model: FIXED stses INTERACTION';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstlng*cmschlng gpcstses*cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1a covparms=C_Full1a;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml IC;
+	title1 'LRT-reduced model: FIXED No stses INTERACTION';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstlng*cmschlng / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_Full1b covparms=C_Full1b;
+run;
+
+proc mixed data=pirls.Ausmeans noclprint covtest;
+	title1 'WITHIN & BETWEEN Model-Stage 4';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmstses cmstres cmschaid cmscheco cmschels gpcstlng*cmschlng gpcstses*cmschses  / solution;
+	random int / type=un subject=idschool g;
+	ods output solutionf=F2 covparms=C2;
+run;
+
+proc freq data=pirls.Ausmeans;
+	tables cmstlng cmstses cmstres cmschaid cmscheco cmschels / missing;
+	by idschool;
+run;
+
+/****************************************\
+*        Test if W-type act=L-type act   *
+\****************************************/
+
+proc mixed data=pirls.Ausmeans IC;
+	title 'Multiparameter F-test: gpcstlng & gpchmlng';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	contrast 'gpcstlng & gpchmlng the same?'
+	gpcstlng 1,
+	gpchmlng 1 / e;
+	ods output solutionf=F_FullF3 covparms=C_FullF3;
+run;
+
+/****************************************\
+*  d. Adequacy of model fit              *
+*    i.  L1 and L2 pseudo R2             *
+*    ii. Usual assumptions: Nor,Lin@L1/L2*
+\****************************************/
+
+proc mixed data=pirls.Ausmeans method=reml;
+title 'R^2 estimates - Null Model';
+		class idschool;
+	model reading = / ddfm=kenwardroger solution;
+	random int / subject=idschool;
+	ods output solutionf=F_Null covparms=C_Null;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml;
+title 'R^2 estimates ñ Final RI WITHIN model';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres / ddfm=kenwardroger solution;
+	random int / subject=idschool;
+	ods output solutionf=F_RIW covparms=C_RIW;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml;
+title 'R^2 estimates - Null Model';
+		class idschool;
+	model reading = / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_NullL2 covparms=C_NullL2;
+run;
+
+proc mixed data=pirls.Ausmeans method=reml;
+title 'R^2 estimates ñ Final RI WITHIN & BETWEEN model';
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / subject=idschool;
+	ods output solutionf=F_RIWB covparms=C_RIWB;
+run;
+
+TITLE 'Generating Harmonic Mean for L2 R^2';
+proc sort data=pirls.Ausmeans;
+	by idschool;
+run;
+
+proc means data=pirls.Ausmeans n;
+	var idschool;
+		by idschool;
+	ods output summary=clustersize;
+run;
+
+data harm_mean;
+	set clustersize;
+inverse = 1/IDSCHOOL_N;
+run;
+
+/*Creates denominator for harmonic mean*/
+/*Look in dataset work.harm for denominator*/
+proc summary data=harm_mean;
+var inverse;
+ 	output out=harm (drop=_type_ _freq_) sum=; /*Denominator below*/
+run;
+
+/*Gives number of clusters*/
+/*Look in dataset 'work.schcount' to get number of schools*/
+proc sql;
+	create table schcount as
+      select count(idschool) as numsch /*Number below*/
+	from harm_mean;
+quit; 
+
+TITLE 'Evaluating Assumptions'; 
+proc mixed data=pirls.Ausmeans;
+	title 'Final WITHIN & BETWEEN Full Model';
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool;
+	ods output solutionf=F_test covparms=C_test;
+run;
+
+/*TITLE 'Quick Evaluation of L1 Assumptions';
+ods html style = journal;
+ods graphics on;
+ods listing;
+proc mixed data=hlmdata.Hw2means method=ml noclprint plots=studentpanel;
+	title 'Final WITHIN & BETWEEN Full Model';
+		class idschool;
+	model science = gpcwork gpcleisure gmcses male cmwork cmleisure cmses mmale gpcwork*gmcses gpcwork*male / ddfm=kenwardroger solution;
+	random int gpcwork gmcses/ type=un subject=idschool;
+	ods output solutionf=F_qL1Eval covparms=C_qL1Eval;
+run;
+quit;
+ods graphics off;
+ods html close;*/
+
+TITLE 'Examining the L1 residuals';
+proc sort data=pirls.Ausmeans;
+by idschool;
+run;
+proc reg data=pirls.Ausmeans;                                                        
+   	model reading = male gpcstlng gpchmlng gpcstses gmcstres; 
+		by idschool;                           
+    output out=score RESIDUAL=_RESID STUDENT=_STUD; 
+run;
+
+TITLE 'Examine the STANDARDIZED residuals via a qq plot, p.162';
+proc univariate data=work.score noprint;
+	title1 "OLS Regression for L1 Residuals";
+var _STUD;
+	qqplot; 
+run;
+
+TITLE 'Look at UNSTANDARDIZED residuals by each predictor, p.162';
+proc sgplot data=work.score;
+	title1 'Unstandardized gpcstlng residuals';
+	scatter x=gpcstlng y=_resid;
+run;
+
+proc sgplot data=work.score;
+	title1 'Unstandardized gpchmlng residuals';
+	scatter x=gpchmlng y=_resid;
+run;
+
+proc sgplot data=work.score;
+	title1 'Unstandardized gpcstses residuals';
+	scatter x=gpcstses y=_resid;
+run;
+
+proc sgplot data=work.score;
+	title1 'Unstandardized gpcstres residuals';
+	scatter x=gpcstres y=_resid;
+run;
+
+
+proc sgplot data=work.score;
+	title 'Box Plot of Residuals by male';
+hbox _resid / category=male ;
+run;
+
+TITLE 'Fit the full model and examine the L2 residuals';
+proc mixed data=pirls.Ausmeans method=ml;
+		class idschool;
+	model reading = male gpcstlng gpchmlng gpcstses gmcstres cmstlng cmhmlng cmstses cmstres cmschlng cmschaid cmscheco cmschses / ddfm=kenwardroger solution;
+	random int / type=un subject=idschool solution;
+	ods output solutionf=RSF covparms=RSC solutionr=RSR;
+run;
+
+TITLE 'Intercept residuals';
+data U_0j;
+	set RSR;
+	where effect = 'Intercept';
+		U_0j = estimate;
+	drop stderrpred df tvalue probt effect estimate;
+run;
+
+/*TITLE 'Slope residuals for *';
+data U_1j;
+	set RSR;
+	where effect = '*';
+		U_1j = estimate;
+	drop stderrpred df tvalue probt effect estimate;
+run;
+
+TITLE 'Slope residuals for *';
+data U_2j;
+	set RSR;
+	where effect = '*';
+		U_2j = estimate;
+	drop stderrpred df tvalue probt effect estimate;
+	run;*/
+
+TITLE 'Combining all the residuals into one dataset to do checks';
+data U_xj;
+	merge U_0j pirls.Ausmeans;
+		by idschool;
+run;
+
+TITLE 'L2 Residuals by L2 Predictors';  
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmstlng;
+	title 'L2 residual inspection (U_0j*cmstlng)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmhmlng;
+	title 'L2 residual inspection (U_0j*cmhmlng)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmstses;
+	title2'L2 residual inspection (U_0j*cmstses)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmstres;
+	title 'L2 residual inspection (U_0j*cmstres)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmschlng;
+	title 'L2 residual inspection (U_0j*cmschlng)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmschaid;
+	title 'L2 residual inspection (U_0j*cmschaid)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmschses;
+	title 'L2 residual inspection (U_0j*cmschses)';
+run;
+
+proc sgplot data=U_xj;
+	scatter y=U_0j x=cmscheco;
+	title 'L2 residual inspection (U_0j*cmschaff)';
+run;
+
+
+ods graphics on; 
+proc univariate data=U_0j normal;
+	var U_0j;
+	histogram;
+	qqplot;
+run;
+
+/*proc univariate data=U_1j normal;
+	var U_1j;
+	histogram;
+	qqplot;
+run;
+
+proc univariate data=U_2j normal;
+	var U_2j;
+	histogram;
+	qqplot;
+run;*/
+
+ods graphics off;
